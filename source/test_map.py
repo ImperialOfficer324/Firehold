@@ -31,7 +31,9 @@ running = True
 #
 # main_map.display_tiles(screen)
 
-map_import.create_full_map(window_size[0], window_size[1], screen)
+full_map = map_import.Map()
+full_map.fill_square(int(window_size[0]/38)+2, int(window_size[1]/38)+1, 0, 0)
+full_map.display_tiles(screen)
 pygame.display.update()
 
 while running:
