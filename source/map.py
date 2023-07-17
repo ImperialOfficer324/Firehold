@@ -10,8 +10,8 @@ class Map:
 
     def __init__(self):
         """Initialize basic map info."""
-        self.start = StartTile()
-        self.map_tiles = {0: {0: self.start}}  # First dictionary is x positions, second is y positions and tile objects
+        self.start = StartTile()   # First dictionary is x positions, second is y positions and tile objects
+        self.map_tiles = {0: {0: self.start}}
 
     def max_x_size(self):
         return len(self.map_tiles)
@@ -35,54 +35,61 @@ class Map:
                      "south": self.get_tile(x, y - 1), "west": self.get_tile(x - 1, y)}
         return neighbors
 
-    def map_fix_connections(self, *tiles):
-        """Go through each tile (half-matrix) and make sure all tile-level connections are correct."""
-        # Todo: create this function
+    def create_new_tile(self, x, y):
+        """Add a new tile to the map in the specified position."""
+        if x not in self.map_tiles:
+            self.map_tiles[x] = {}
+        self.map_tiles[x][y] = Tile(x, y)
 
-    def extend(self, current_tile, direction):
-        """Tell a tile to create a new tile in a specific direction, and add it to the map."""
-        new_tile = current_tile.create_new_tile(direction)
-        self.map_tiles[new_tile.x_offset] = {new_tile.y_offset: new_tile}
-
-    # def test_tile(self, tile, screen, pixel_position):
-    #     """Draw a single tile."""
-    #     screen.blit(tile.image, pixel_position)
+    def extend(self, x, y, direction):
+        """Create a new adjacent tile in a specific direction, and add it to the map."""
+        x_offset = 0
+        y_offset = 0
+        if direction == "north":
+            y_offset = 1
+        elif direction == "east":
+            x_offset = 1
+        elif direction == "south":
+            y_offset = -1
+        elif direction == "west":
+            x_offset = -1
+        self.create_new_tile(x+x_offset, y+y_offset)
 
     def fill_square(self, width, height, x_start, y_start):
         """Create a square of tiles based on a given size."""
         # x_start and y_start are the center of the square, middle is shifted towards positive values (north + east)
-        # for conflicts (ex. with an even width and height) Todo: Make this work for even inputs
+        # for conflicts (ex. with an even width and height) # Todo: Change algorithm to work nicely for even inputs?
         for x in range(int(x_start-width/2), int(x_start+width/2)):
             if x not in self.map_tiles:
                 self.map_tiles[x] = {}
             for y in range(int(y_start+height/2), int(y_start-height/2), -1):
                 if self.get_tile(x, y):
                     continue
-                self.map_tiles[x][y] = Tile(x, y)
-        self.map_fix_connections()
+                self.create_new_tile(x, y)
 
-    def display_tiles(self, screen):
+    def display_tiles(self, screen, scrn_width, scrn_height, tile_size):
         """Temporary: show all currently made tiles, connected."""
-        for xpos in self.map_tiles:
-            for ypos in self.map_tiles[xpos]:
-                screen.blit(self.map_tiles[xpos][ypos].image, (int(500+xpos*38-19), int(400+ypos*38-19)))
-                # Todo: remove constants here, temporary?
-                print(f"Name: {self.map_tiles[xpos][ypos]}, X Offset: {xpos}, Y Offset: {ypos}")
-                print(f"X Pixel Position: {int(500+xpos*38)}, Y Pixel Position: {int(400+ypos*38)}")
+        for x_pos in self.map_tiles:
+            for y_pos in self.map_tiles[x_pos]:
+                screen.blit(self.map_tiles[x_pos][y_pos].image, (int(scrn_width/2 + x_pos*tile_size-tile_size/2),
+                                                                 int(scrn_height/2 + y_pos*tile_size-tile_size/2)))
+
+                print(f"Name: {self.map_tiles[x_pos][y_pos]}, X Offset: {x_pos}, Y Offset: {y_pos}")
+                print(f"X Pixel Position: {int(scrn_width/2 + x_pos*tile_size)},"
+                      f" Y Pixel Position: {int(scrn_height/2 + y_pos*tile_size)}")
 
 
 class Tile:
-    """Create a single map tile that is aware of connections to other tiles."""
+    """Create a generated single map tile."""
     last_id = -1
 
-    def __init__(self, x_pos, y_pos, **connected):
-        """Give basic tile info and awareness to other tiles."""
-        # **connected takes in the direction and tile ID of each known, connected tile
+    def __init__(self, x_pos, y_pos):
+        """Give basic tile info and texture."""
         Tile.last_id += 1
         self.tile_id = Tile.last_id
         self.y_offset = y_pos   # Offset from the middle (origin), distance from (0, 0)
         self.x_offset = x_pos
-        random_texture_test = randint(1, 4)
+        random_texture_test = randint(1, 4)   # This can be expanded to be more complex
 
         if random_texture_test < 3:
             self.image = pygame.image.load("../map_tiles/tests/test_orange.png").convert()
@@ -90,33 +97,6 @@ class Tile:
             self.image = pygame.image.load("../map_tiles/tests/test_green.png").convert()
         else:
             self.image = pygame.image.load("../map_tiles/tests/test_pink.png").convert()
-        # self.tile_surface = pygame.Surface((38, 38))
-        # self.tile_surface.blit(self.image, self.tile_surface)
-
-        # Make a set of empty connections, then fill in any known connections
-        self.connections = {'north': '', 'east': '', 'south': '', 'west': ''}   # Are empty keys necessary here?
-        self.connections.update(connected)
-
-    def create_new_tile(self, direction):
-        """Add a new tile to the map in the specified direction."""
-        # Adding .lower() to the tile directions below could improve stability,
-        # but capitalized directions should never be passed to the function in the first place
-        if direction == 'north':
-            new_tile = Tile(self.x_offset, self.y_offset - 1, south=self.tile_id)
-        elif direction == 'east':
-            new_tile = Tile(self.x_offset + 1, self.y_offset, west=self.tile_id)
-        elif direction == 'south':
-            new_tile = Tile(self.x_offset, self.y_offset + 1, north=self.tile_id)
-        elif direction == 'west':
-            new_tile = Tile(self.x_offset - 1, self.y_offset, east=self.tile_id)
-        else:
-            new_tile = None
-            print("Direction does not exist")
-        return new_tile
-
-    def display_connections(self):
-        """Display all connections that this tile has to other tiles"""
-        # Todo: create this function?
 
 
 class StartTile(Tile):
@@ -125,25 +105,3 @@ class StartTile(Tile):
     def __init__(self):
         """Make the starting tile a tile with specific parameters."""
         super().__init__(0, 0)
-
-
-# def spiral_map(width, height, screen):
-#     """Create and show the entire map."""
-#     full_map = Map()
-#     while len(full_map.map_tiles) < width/38 and len(full_map.map_tiles[int(width/38)] < height/38):
-#         # Todo: remove constants, (and make this work)
-#         increment = 1
-#
-#         for i in range(1, increment):
-#             full_map.extend(full_map.map_tiles[0][0], "east")
-#             full_map.extend(full_map.map_tiles[0][0], "north")
-#         increment += 1
-#
-#         for i in range(1, increment):
-#             full_map.extend(full_map.map_tiles[0][0], "west")
-#             full_map.extend(full_map.map_tiles[0][0], "south")
-#         increment += 1
-#
-#     # Todo: Add tiles until map is finished, in a spiral starting from the middle.
-#     #  The above extensions need to not all be based on the start tile
-#     full_map.display_tiles(screen)   # Use a different method: overwrite entire map, then add starting tile back?
